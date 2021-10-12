@@ -12,6 +12,7 @@
 #include <LibCore/ArgsParser.h>
 #include <LibCore/File.h>
 #include <fcntl.h>
+#include <paths.h>
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
@@ -67,7 +68,7 @@ static bool mount_all()
     // Mount all filesystems listed in /etc/fstab.
     dbgln("Mounting all filesystems...");
 
-    auto fstab = Core::File::construct("/etc/fstab");
+    auto fstab = Core::File::construct(_PATH_MOUNT_TABLE);
     if (!fstab->open(Core::OpenMode::ReadOnly)) {
         warnln("Failed to open {}: {}", fstab->name(), fstab->error_string());
         return false;

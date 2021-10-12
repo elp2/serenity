@@ -1,0 +1,107 @@
+diff -Naur a/include/fuse_kernel.h b/include/fuse_kernel.h
+--- a/include/fuse_kernel.h	2021-09-06 12:45:29.000000000 +0000
++++ b/include/fuse_kernel.h	2021-10-08 14:55:28.642733817 +0000
+@@ -822,7 +822,7 @@
+ };
+ 
+ /* Device ioctls: */
+-#define FUSE_DEV_IOC_CLONE	_IOR(229, 0, uint32_t)
++#define FUSE_DEV_IOC_CLONE	229 // FIXME: ioctl_number
+ 
+ struct fuse_lseek_in {
+ 	uint64_t	fh;
+diff -Naur a/lib/fuse_lowlevel.c b/lib/fuse_lowlevel.c
+--- a/lib/fuse_lowlevel.c	2021-09-06 12:45:29.000000000 +0000
++++ b/lib/fuse_lowlevel.c	2021-10-11 00:18:13.826023423 +0000
+@@ -495,7 +495,7 @@
+ 		return fuse_send_msg(se, ch, iov, iov_count);
+ 	}
+ 
+-	res = posix_memalign(&mbuf, pagesize, len);
++	res = 0; // FIXME: posix_memalign
+ 	if (res != 0)
+ 		return res;
+ 
+@@ -757,7 +757,7 @@
+ 		 * the pipe because of small buffer fragments.
+ 		 */
+ 
+-		res = posix_memalign(&mbuf, pagesize, len);
++		res = 0; // FIXME: posix_memalign
+ 		if (res != 0)
+ 			goto clear_pipe;
+ 
+diff -Naur a/lib/meson.build b/lib/meson.build
+--- a/lib/meson.build	2021-09-06 12:45:29.000000000 +0000
++++ b/lib/meson.build	2021-10-11 16:35:12.867399189 +0000
+@@ -4,11 +4,7 @@
+                    'helper.c', 'modules/subdir.c', 'mount_util.c',
+                    'fuse_log.c' ]
+ 
+-if host_machine.system().startswith('linux')
+-   libfuse_sources += [ 'mount.c' ]
+-else
+-   libfuse_sources += [ 'mount_bsd.c' ]
+-endif
++libfuse_sources += [ 'mount.c' ]
+ 
+ deps = [ thread_dep ]
+ if cfg.get('HAVE_ICONV')
+@@ -24,13 +20,6 @@
+    deps += [ libdl ]
+ endif
+ 
+-if host_machine.system().startswith('netbsd')
+-   deps += [ cc.find_library('perfuse'),
+-             cc.find_library('puffs') ]
+-else
+-   # Required for clock_gettime before glibc 2.17
+-   deps += cc.find_library('rt')
+-endif
+ 
+ fusermount_path = join_paths(get_option('prefix'), get_option('bindir'))
+ libfuse = library('fuse3', libfuse_sources, version: meson.project_version(),
+diff -Naur a/lib/mount.c b/lib/mount.c
+--- a/lib/mount.c	2021-09-06 12:45:29.000000000 +0000
++++ b/lib/mount.c	2021-10-10 22:43:04.626874856 +0000
+@@ -447,7 +447,7 @@
+ 	strcpy(source,
+ 	       mo->fsname ? mo->fsname : (mo->subtype ? mo->subtype : devname));
+ 
+-	res = mount(source, mnt, type, mo->flags, mo->kernel_opts);
++	res = mounty(source, mnt, type, mo->flags, mo->kernel_opts);
+ 	if (res == -1 && errno == ENODEV && mo->subtype) {
+ 		/* Probably missing subtype support */
+ 		strcpy(type, mo->blkdev ? "fuseblk" : "fuse");
+@@ -458,7 +458,7 @@
+ 		} else {
+ 			strcpy(source, type);
+ 		}
+-		res = mount(source, mnt, type, mo->flags, mo->kernel_opts);
++		res = mounty(source, mnt, type, mo->flags, mo->kernel_opts);
+ 	}
+ 	if (res == -1) {
+ 		/*
+diff -Naur a/meson.build b/meson.build
+--- a/meson.build	2021-09-06 12:45:29.000000000 +0000
++++ b/meson.build	2021-10-11 16:34:39.364098691 +0000
+@@ -124,18 +124,9 @@
+ # Read build files from sub-directories
+ #
+ subdirs = [ 'lib', 'include']
+-if get_option('utils') and not platform.endswith('bsd') and platform != 'dragonfly'
+-  subdirs += [ 'util', 'doc' ]
+-endif
+ 
+-if get_option('examples')
+-  subdirs += 'example'
+-endif
+-
+-if get_option('tests')
+-  subdirs += 'test'
+-endif
+ 
+ foreach n : subdirs
+     subdir(n)
+ endforeach
++
